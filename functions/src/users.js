@@ -26,8 +26,7 @@ exports.userSignup = (req, res) => {
   const db = connectDb()
   // then insert into database and return success
   db.collection('users')
-    .doc(req.body.email.toLowerCase())
-    .set(req.body)
+    .add(req.body)
     .then(() => {
       const token = jwt.sign({ email: req.body.email }, secret)
       res.send({
@@ -92,3 +91,37 @@ exports.userLogin = (req, res) => {
     })
 }
 
+exports.updateUser = (req, res) => {
+  // first decode token, make sure valid
+  const bearer = req.headers['authorization']
+  if(!bearer) {
+    res.status(403).send({
+      success: false,
+      status: 403,
+      message: 'Access denied: no token provided'
+    })
+  }
+  const token = bearer.split(' ')[1]
+  const decoded = jwt.verify(token, secret)
+  console.log(decoded) // { email, iat }
+  const db = connectDb()
+  db.collection('users').where('email', '==', decoded.email).get()
+    .then(collection => {
+      const userId = collection.docs[0].id
+      db.collection('users').doc(userId).update(req.body)
+        .then(docRef => {
+          res.send({
+            success: true,
+            status: 202,
+            message: 'User updated successfully'
+          })
+        })
+    })
+    .catch(err => {
+      res.status(500).send({
+        success: false,
+        status: 500,
+        message: 'Server Error: Failed to update user profile'
+      })
+    })
+}
